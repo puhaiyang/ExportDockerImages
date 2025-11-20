@@ -1,0 +1,60 @@
+name: Export Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_image:
+        description: "要导出的 Docker 镜像，如 nginx:latest"
+        required: true
+        default: "nginx:latest"
+
+jobs:
+  export-and-upload:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write     # 允许创建 Release + 上传 Assets
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set variables
+        id: vars
+        run: |
+          IMAGE="${{ github.event.inputs.docker_image }}"
+          FILE="docker-image.tar"
+          TAG="export-$(date +%Y%m%d-%H%M%S)"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          echo "FILE=$FILE" >> $GITHUB_ENV
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub (optional)
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        run: |
+          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Pull Docker image
+        run: docker pull "$IMAGE"
+
+      - name: Save Docker image to tar
+        run: docker save "$IMAGE" -o "$FILE"
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "Docker Image Export ${{ env.TAG }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Docker Image to Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          files: ${{ env.FILE }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
