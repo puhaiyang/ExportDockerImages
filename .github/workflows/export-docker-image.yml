@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write     # 允许创建 Release + 上传 Assets
+      contents: write
 
     steps:
       - name: Checkout repo
@@ -23,8 +23,13 @@ jobs:
         id: vars
         run: |
           IMAGE="${{ github.event.inputs.docker_image }}"
-          FILE="docker-image.tar"
+
+          # 转换镜像名为安全文件名
+          SAFE_NAME=$(echo "$IMAGE" | sed 's/[\/:]/_/g')
+          FILE="${SAFE_NAME}.tar"
+
           TAG="export-$(date +%Y%m%d-%H%M%S)"
+
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
           echo "FILE=$FILE" >> $GITHUB_ENV
           echo "TAG=$TAG" >> $GITHUB_ENV
@@ -41,8 +46,6 @@ jobs:
         with:
           tag_name: ${{ env.TAG }}
           name: "Docker Image Export ${{ env.TAG }}"
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
